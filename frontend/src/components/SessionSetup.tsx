@@ -22,6 +22,13 @@ import { DashboardApi } from '@/lib/api'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { StudentPreview } from '@/types/dashboard'
 
+const normalizeCell = (value: any): string => {
+  if (value === undefined || value === null) return ''
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toString()
+  return String(value).trim()
+}
+
 const setupSchema = z.object({
   semester: z.number().min(1).max(8),
   department: z.string().min(1),
@@ -71,20 +78,34 @@ export function SessionSetup() {
       const workbook = xlsx.read(data)
       const worksheet = workbook.Sheets[workbook.SheetNames[0]]
 
-      const jsonData = xlsx.utils.sheet_to_json(worksheet)
+      const jsonData = xlsx.utils.sheet_to_json(worksheet, { defval: '', raw: false })
 
       const students: StudentPreview[] = []
 
       jsonData.forEach((row: any) => {
         const keys = Object.keys(row)
-        const nameKey = keys.find(k => k.toLowerCase().includes('name'))
-        const enrKey = keys.find(k => k.toLowerCase().includes('enrollment') || k.toLowerCase().includes('roll'))
+        const lowerKey = (k: string) => k.toLowerCase()
+        const nameKey = keys.find(k => lowerKey(k).includes('name'))
+        const enrKey = keys.find(k => lowerKey(k).includes('enrollment') || lowerKey(k).includes('roll'))
+        const emailKey = keys.find(k => lowerKey(k).includes('mail'))
+        const phoneKey = keys.find(k => {
+          const lower = lowerKey(k)
+          return lower.includes('phone') || lower.includes('mobile') || lower.includes('contact') || lower.includes('whatsapp')
+        })
 
         if (nameKey && enrKey) {
-          students.push({
-            name: String(row[nameKey]),
-            enrollmentNo: String(row[enrKey])
-          })
+          const student: StudentPreview = {
+            name: normalizeCell(row[nameKey]),
+            enrollmentNo: normalizeCell(row[enrKey])
+          }
+
+          const emailValue = emailKey ? normalizeCell(row[emailKey]) : ''
+          if (emailValue) student.email = emailValue
+
+          const phoneValue = phoneKey ? normalizeCell(row[phoneKey]) : ''
+          if (phoneValue) student.phone = phoneValue.replace(/[^0-9+]/g, '')
+
+          students.push(student)
         }
       })
 

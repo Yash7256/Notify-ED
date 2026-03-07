@@ -25,44 +25,29 @@ router.post('/create', async (req, res) => {
       return res.status(500).json({ success: false, error: 'Failed to fetch subjects' });
     }
 
-    const enrollmentNos = students.map((s) => s.enrollmentNo).filter(Boolean);
-
-    const { data: existingStudents, error: existingError } = await supabase
-      .from('students')
-      .select('id,enrollment_no,name,email,phone')
-      .in('enrollment_no', enrollmentNos);
-
-    if (existingError) {
-      console.error('[session:create] fetch students failed', existingError.message);
-      return res.status(500).json({ success: false, error: 'Failed to fetch students' });
-    }
-
-    const existingMap = new Map((existingStudents || []).map((s) => [s.enrollment_no, s]));
-    const toInsert = students
-      .filter((s) => !existingMap.has(s.enrollmentNo))
-      .map((s) => ({
+    const upsertPayload = students.map((s) => {
+      const email = s.email?.trim();
+      const phone = s.phone?.trim();
+      return {
         enrollment_no: s.enrollmentNo,
         name: s.name,
-        email: s.email || null,
-        phone: s.phone || null,
+        email: email || undefined,
+        phone: phone || undefined,
         department
-      }));
+      };
+    });
 
-    let inserted = [];
-    if (toInsert.length > 0) {
-      const { data: insertedRows, error: insertError } = await supabase
-        .from('students')
-        .insert(toInsert)
-        .select('id,enrollment_no,name,email,phone');
+    const { data: upsertedStudents, error: upsertError } = await supabase
+      .from('students')
+      .upsert(upsertPayload, { onConflict: 'enrollment_no' })
+      .select('id,enrollment_no,name,email,phone');
 
-      if (insertError) {
-        console.error('[session:create] insert students failed', insertError.message);
-        return res.status(500).json({ success: false, error: 'Failed to upsert students' });
-      }
-      inserted = insertedRows || [];
+    if (upsertError) {
+      console.error('[session:create] upsert students failed', upsertError.message);
+      return res.status(500).json({ success: false, error: 'Failed to upsert students' });
     }
 
-    const allStudents = [...existingStudents, ...inserted];
+    const allStudents = upsertedStudents || [];
     const studentsWithMarks = students
       .map((s) => {
         const matched = allStudents.find((row) => row.enrollment_no === s.enrollmentNo);

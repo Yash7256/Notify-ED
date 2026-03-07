@@ -1,6 +1,8 @@
 export interface StudentPreview {
     name: string
     enrollmentNo: string
+    email?: string
+    phone?: string
 }
 
 export interface Subject {
