@@ -1,0 +1,8 @@
+# Ignore repo-level artifacts when deploying frontend
+../backend
+../*.md
+../*.json
+../*.lock
+../node_modules
+../.git
+../.github
