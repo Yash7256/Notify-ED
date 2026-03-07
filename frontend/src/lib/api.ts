@@ -9,14 +9,20 @@ const API_BASE =
 export const DashboardApi = {
     createSession: async (payload: CreateSessionPayload): Promise<CreateSessionResponse> => {
         try {
+            const controller = new AbortController()
+            const timeout = setTimeout(() => controller.abort(), 20000)
+
             const resp = await fetch(`${API_BASE}/api/session/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: controller.signal,
             })
+            clearTimeout(timeout)
 
             if (!resp.ok) {
-                throw new Error('Failed to create session')
+                const text = await resp.text().catch(() => '')
+                throw new Error(`Failed to create session (${resp.status} ${resp.statusText}) ${text}`)
             }
 
             const data = await resp.json()
@@ -33,6 +39,7 @@ export const DashboardApi = {
                 studentsWithMarks: data.studentsWithMarks
             }
         } catch (err) {
+            console.error('[session:create] request failed', err)
             // Fallback to direct Supabase query so UI still works in dev
             const { data: subjects } = await supabase
                 .from('semester_subjects')

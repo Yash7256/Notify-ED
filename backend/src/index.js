@@ -16,6 +16,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Quick root response so Vercel/health checks don't hit heavy routes or time out.
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', service: 'notify-ed-backend', timestamp: new Date().toISOString() });
+});
+
 app.use('/api/marks', marksRouter);
 app.use('/api/session', sessionRouter);
 
