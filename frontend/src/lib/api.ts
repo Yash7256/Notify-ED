@@ -1,7 +1,10 @@
 import { CreateSessionPayload, CreateSessionResponse, SubmitRowPayload } from '../types/dashboard'
 import { supabase } from './supabase'
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
+// Prefer explicit env; otherwise fall back to current origin in browser, then localhost for dev.
+const API_BASE =
+    import.meta.env.VITE_API_BASE ||
+    (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000')
 
 export const DashboardApi = {
     createSession: async (payload: CreateSessionPayload): Promise<CreateSessionResponse> => {
