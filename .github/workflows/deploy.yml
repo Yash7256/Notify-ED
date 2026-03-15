@@ -37,11 +37,8 @@ jobs:
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token $VERCEL_TOKEN
 
-      - name: Build (prebuilt)
-        run: vercel build --prod --token $VERCEL_TOKEN
-
-      - name: Deploy frontend
-        run: vercel deploy --prebuilt --prod --token $VERCEL_TOKEN
+      - name: Deploy frontend (remote build)
+        run: vercel deploy --prod --yes --token $VERCEL_TOKEN
 
   backend:
     name: Backend → Vercel
@@ -66,8 +63,5 @@ jobs:
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token $VERCEL_TOKEN
 
-      - name: Build (prebuilt)
-        run: vercel build --prod --token $VERCEL_TOKEN
-
-      - name: Deploy backend
-        run: vercel deploy --prebuilt --prod --token $VERCEL_TOKEN
+      - name: Deploy backend (remote build)
+        run: vercel deploy --prod --yes --token $VERCEL_TOKEN
