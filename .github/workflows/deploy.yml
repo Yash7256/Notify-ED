@@ -32,10 +32,10 @@ jobs:
         run: npm install --global vercel@latest
 
       - name: Pull Vercel environment
-        run: vercel pull --cwd frontend --yes --environment=production --token $VERCEL_TOKEN
+        run: vercel pull --yes --environment=production --token $VERCEL_TOKEN
 
       - name: Deploy frontend (remote build)
-        run: vercel deploy --cwd frontend --prod --yes --token $VERCEL_TOKEN
+        run: vercel deploy --prod --yes --token $VERCEL_TOKEN
 
   backend:
     name: Backend → Vercel
@@ -55,7 +55,7 @@ jobs:
         run: npm install --global vercel@latest
 
       - name: Pull Vercel environment
-        run: vercel pull --cwd backend --yes --environment=production --token $VERCEL_TOKEN
+        run: vercel pull --yes --environment=production --token $VERCEL_TOKEN
 
       - name: Deploy backend (remote build)
-        run: vercel deploy --cwd backend --prod --yes --token $VERCEL_TOKEN
+        run: vercel deploy --prod --yes --token $VERCEL_TOKEN
