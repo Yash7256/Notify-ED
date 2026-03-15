@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { DashboardApi } from '@/lib/api'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { StudentPreview } from '@/types/dashboard'
+import { CatalogManager } from './CatalogManager'
 
 const normalizeCell = (value: any): string => {
   if (value === undefined || value === null) return ''
@@ -37,6 +38,9 @@ export function SessionSetup() {
   const [success, setSuccess] = useState(false)
   const [toast, setToast] = useState<{ message: string; show: boolean }>({ message: '', show: false })
   const [dragOver, setDragOver] = useState(false)
+  const [showCatalog, setShowCatalog] = useState(false)
+  const [departments, setDepartments] = useState<string[]>([])
+  const [loadingDeps, setLoadingDeps] = useState(false)
 
   const [formData, setFormData] = useState({
     semester: false,
@@ -63,6 +67,25 @@ export function SessionSetup() {
       file: parsedStudents.length > 0
     })
   }, [watchedFields.semester, watchedFields.department, watchedFields.academicYear, parsedStudents.length])
+
+  useEffect(() => {
+    const loadDepartments = async () => {
+      setLoadingDeps(true)
+      try {
+        const list = await DashboardApi.listDepartments()
+        const names = list.map((d) => d.name)
+        setDepartments(names)
+        if (!watchedFields.department && names.length > 0) {
+          setValue('department', names[0])
+        }
+      } catch (err) {
+        console.warn('Failed to load departments', err)
+      } finally {
+        setLoadingDeps(false)
+      }
+    }
+    loadDepartments()
+  }, [])
 
   const onSemesterChange = (val: string) => setValue('semester', parseInt(val))
 
@@ -238,6 +261,22 @@ export function SessionSetup() {
         .srp-title em {
           font-style: italic;
           color: var(--accent);
+        }
+
+        .srp-manage {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-top: 1rem;
+          background: var(--ink);
+          color: var(--paper);
+          padding: 0.55rem 1rem;
+          border-radius: 999px;
+          border: none;
+          cursor: pointer;
+          font-family: 'DM Mono', monospace;
+          letter-spacing: 0.06em;
+          font-size: 0.7rem;
         }
 
         .srp-sub {
@@ -611,7 +650,16 @@ export function SessionSetup() {
               <div className="srp-header">
                 <h2 className="srp-title">New <em>Assessment</em> Session</h2>
                 <p className="srp-sub">Configure semester details and upload the student roster Excel sheet.</p>
+                <button type="button" className="srp-manage" onClick={() => setShowCatalog(v => !v)}>
+                  {showCatalog ? 'Hide catalog manager' : 'Manage departments & subjects'}
+                </button>
               </div>
+
+              {showCatalog && (
+                <div style={{ padding: '0 5rem 0' }}>
+                  <CatalogManager />
+                </div>
+              )}
 
               <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                 <div className="srp-body">
@@ -629,7 +677,19 @@ export function SessionSetup() {
                     </div>
                     <div className="field-cell">
                       <label className="field-lbl">Department <span className="req">*</span></label>
-                      <input {...register('department')} className="field-inp" placeholder="e.g. AI & Robotics" />
+                      <div className="sel-wrap">
+                        <select
+                          className="field-sel"
+                          value={watchedFields.department || ''}
+                          onChange={(e) => setValue('department', e.target.value)}
+                          disabled={loadingDeps}
+                        >
+                          <option value="" disabled>{loadingDeps ? 'Loading departments…' : 'Select department'}</option>
+                          {departments.map((dep) => (
+                            <option key={dep} value={dep}>{dep}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                     <div className="field-cell">
                       <label className="field-lbl">Academic Year <span className="req">*</span></label>

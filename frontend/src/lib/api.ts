@@ -1,4 +1,4 @@
-import { CreateSessionPayload, CreateSessionResponse, SubmitRowPayload } from '../types/dashboard'
+import { CreateSessionPayload, CreateSessionResponse, SubmitRowPayload, Department, Subject, CreateSubjectPayload } from '../types/dashboard'
 import { supabase } from './supabase'
 
 // Prefer explicit env; otherwise fall back to current origin in browser, then localhost for dev.
@@ -93,5 +93,61 @@ export const DashboardApi = {
 
         const data = await resp.json().catch(() => ({}));
         return { success: resp.ok, message: data.error };
+    },
+
+    listDepartments: async (): Promise<Department[]> => {
+        const resp = await fetch(`${API_BASE}/api/catalog/departments`);
+        if (!resp.ok) throw new Error('Failed to fetch departments');
+        const data = await resp.json();
+        return data.departments || [];
+    },
+
+    addDepartment: async (name: string): Promise<Department> => {
+        const resp = await fetch(`${API_BASE}/api/catalog/departments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Failed to add department');
+        return data.department;
+    },
+
+    deleteDepartment: async (id: string): Promise<void> => {
+        const resp = await fetch(`${API_BASE}/api/catalog/departments/${id}`, { method: 'DELETE' });
+        if (!resp.ok) {
+            const data = await resp.json().catch(() => ({}));
+            throw new Error(data.error || 'Failed to delete department');
+        }
+    },
+
+    listSubjects: async (filters: { department?: string; semester?: number }): Promise<Subject[]> => {
+        const params = new URLSearchParams();
+        if (filters.department) params.append('department', filters.department);
+        if (filters.semester) params.append('semester', String(filters.semester));
+
+        const resp = await fetch(`${API_BASE}/api/catalog/subjects?${params.toString()}`);
+        if (!resp.ok) throw new Error('Failed to fetch subjects');
+        const data = await resp.json();
+        return data.subjects || [];
+    },
+
+    addSubject: async (payload: CreateSubjectPayload): Promise<Subject> => {
+        const resp = await fetch(`${API_BASE}/api/catalog/subjects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Failed to add subject');
+        return data.subject;
+    },
+
+    deleteSubject: async (id: string): Promise<void> => {
+        const resp = await fetch(`${API_BASE}/api/catalog/subjects/${id}`, { method: 'DELETE' });
+        if (!resp.ok) {
+            const data = await resp.json().catch(() => ({}));
+            throw new Error(data.error || 'Failed to delete subject');
+        }
     }
 }

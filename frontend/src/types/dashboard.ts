@@ -5,12 +5,25 @@ export interface StudentPreview {
     phone?: string
 }
 
+export interface Department {
+    id: string
+    name: string
+}
+
 export interface Subject {
     id: string
     subject_code: string
     subject_name: string
     semester: number
     credit: number
+}
+
+export interface CreateSubjectPayload {
+    subject_code: string
+    subject_name: string
+    semester: number
+    department: string
+    credit?: number
 }
 
 export interface SubjectMarks {
