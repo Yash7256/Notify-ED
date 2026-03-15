@@ -1,0 +1,73 @@
+name: Deploy Frontend & Backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend → Vercel
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_FRONTEND }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN_FRONTEND }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token $VERCEL_TOKEN
+
+      - name: Build (prebuilt)
+        run: vercel build --prod --token $VERCEL_TOKEN
+
+      - name: Deploy frontend
+        run: vercel deploy --prebuilt --prod --token $VERCEL_TOKEN
+
+  backend:
+    name: Backend → Vercel
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BACKEND }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN_BACKEND }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token $VERCEL_TOKEN
+
+      - name: Build (prebuilt)
+        run: vercel build --prod --token $VERCEL_TOKEN
+
+      - name: Deploy backend
+        run: vercel deploy --prebuilt --prod --token $VERCEL_TOKEN

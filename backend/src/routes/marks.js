@@ -1,6 +1,6 @@
 const express = require('express');
 const supabase = require('../services/supabaseClient');
-const { sendEmail, sendWhatsApp } = require('../services/notifications');
+const { sendEmail } = require('../services/notifications');
 const { sendInAppNotification } = require('../services/inAppNotificationService');
 const { validateSubmitPayload, validateResendPayload, MARK_RANGES } = require('../utils/validation');
 
@@ -17,8 +17,6 @@ function composeMessages(student, subjectName, mark) {
   const displayName = student?.name || 'Student';
   const subject = subjectName || 'Subject';
 
-  const scoreLine = `Mid-term: ${mark.midTerm}/${MARK_RANGES.midTerm.max}, End-term: ${mark.endTerm}/${MARK_RANGES.endTerm.max}, Assignment: ${mark.assignment}/${MARK_RANGES.assignment.max}, Attendance: ${mark.attendance}%`;
-
   const emailSubject = `Marks update for ${subject}`;
   const emailHtml = `
     <p>Hi ${displayName},</p>
@@ -32,9 +30,7 @@ function composeMessages(student, subjectName, mark) {
     <p>If you have any questions, please reach out to your course instructor.</p>
   `;
 
-  const whatsappText = `Hi ${displayName}! Here are your marks for ${subject}. ${scoreLine}.`;
-
-  return { emailSubject, emailHtml, whatsappText };
+  return { emailSubject, emailHtml };
 }
 
 async function logNotification({ studentId, markId, channel, result }) {
@@ -108,7 +104,7 @@ router.post('/submit', async (req, res) => {
     const subjectIds = [...new Set(marks.map((m) => m.subjectId))];
     const { data: students, error: studentsError } = await supabase
       .from('students')
-      .select('id,name,email,phone')
+      .select('id,name,email')
       .in('id', studentIds);
 
     const { data: subjects, error: subjectsError } = await supabase
@@ -131,7 +127,6 @@ router.post('/submit', async (req, res) => {
       (upsertedMarks || []).find((row) => row.student_id === studentId && row.subject_id === subjectId);
 
     let emailSent = 0;
-    let whatsappSent = 0;
     let inAppSent = 0;
     const failed = [];
 
@@ -141,52 +136,35 @@ router.post('/submit', async (req, res) => {
 
       if (!student) {
         console.warn(`[submit] Student ${entry.studentId} not found; skipping notifications`);
-        failed.push({ studentId: entry.studentId, channels: ['email', 'whatsapp'], reason: 'Student not found' });
+        failed.push({ studentId: entry.studentId, channel: 'email', reason: 'Student not found' });
         continue;
       }
 
       const subjectName = subjectMap[entry.subjectId] || entry.subjectId || 'Subject';
-      const { emailSubject, emailHtml, whatsappText } = composeMessages(student, subjectName, entry);
+      const { emailSubject, emailHtml } = composeMessages(student, subjectName, entry);
 
       const emailPromise = student.email
         ? sendEmail(student.email, emailSubject, emailHtml)
         : Promise.reject(new Error('Email address is required for this student'));
 
-      const whatsappPromise = student.phone
-        ? sendWhatsApp(student.phone, whatsappText)
-        : Promise.reject(new Error('Phone number is required for this student'));
-
-      const [emailResult, whatsappResult, inAppResult] = await Promise.allSettled([
+      const [emailResult, inAppResult] = await Promise.allSettled([
         emailPromise,
-        whatsappPromise,
         sendInAppNotification(student.id, student.name, entry.subjectId, subjectName, entry)
       ]);
 
       if (emailResult.status === 'rejected') {
         console.error(`[notify] Email failed for student ${student.id}:`, serializeError(emailResult.reason));
       }
-      if (whatsappResult.status === 'rejected') {
-        console.error(`[notify] WhatsApp failed for student ${student.id}:`, serializeError(whatsappResult.reason));
-      }
       if (inAppResult.status === 'rejected') {
         console.error(`[notify] In-app notification failed for student ${student.id}:`, serializeError(inAppResult.reason));
       }
 
-      await Promise.all([
-        logNotification({ studentId: student.id, markId: markRow?.id, channel: 'email', result: emailResult }),
-        logNotification({ studentId: student.id, markId: markRow?.id, channel: 'whatsapp', result: whatsappResult })
-      ]);
+      await logNotification({ studentId: student.id, markId: markRow?.id, channel: 'email', result: emailResult });
 
       if (emailResult.status === 'fulfilled') {
         emailSent += 1;
       } else {
         failed.push({ studentId: student.id, channel: 'email', reason: serializeError(emailResult.reason) });
-      }
-
-      if (whatsappResult.status === 'fulfilled') {
-        whatsappSent += 1;
-      } else {
-        failed.push({ studentId: student.id, channel: 'whatsapp', reason: serializeError(whatsappResult.reason) });
       }
 
       if (inAppResult.status === 'fulfilled') {
@@ -198,7 +176,7 @@ router.post('/submit', async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      notified: { email: emailSent, whatsapp: whatsappSent, inApp: inAppSent },
+      notified: { email: emailSent, inApp: inAppSent },
       failed
     });
   } catch (err) {
@@ -229,14 +207,14 @@ router.post('/resend-failed', async (req, res) => {
 
     const failedLogs = (logs || []).filter((log) => log.status === 'failed');
     if (failedLogs.length === 0) {
-      return res.status(200).json({ success: true, retried: { email: 0, whatsapp: 0 }, failed: [], message: 'No failed logs to retry' });
+      return res.status(200).json({ success: true, retried: { email: 0 }, failed: [], message: 'No failed logs to retry' });
     }
 
     const studentIds = [...new Set(failedLogs.map((log) => log.student_id))];
     const markIds = [...new Set(failedLogs.map((log) => log.marks_id).filter(Boolean))];
 
     const [{ data: students, error: studentsError }, { data: marksData, error: marksError }] = await Promise.all([
-      supabase.from('students').select('id,name,email,phone').in('id', studentIds),
+      supabase.from('students').select('id,name,email').in('id', studentIds),
       supabase
         .from('marks')
         .select('id,subject_id,student_id,mid_term,end_term,assignment,attendance')
@@ -257,7 +235,6 @@ router.post('/resend-failed', async (req, res) => {
     const markMap = Object.fromEntries((marksData || []).map((m) => [m.id, m]));
 
     let emailSent = 0;
-    let whatsappSent = 0;
     const failed = [];
 
     for (const log of failedLogs) {
@@ -276,14 +253,9 @@ router.post('/resend-failed', async (req, res) => {
         attendance: mark.attendance
       };
 
-      const { emailSubject, emailHtml, whatsappText } = composeMessages(student, mark.subject_id, markPayload);
+      const { emailSubject, emailHtml } = composeMessages(student, mark.subject_id, markPayload);
 
-      let result;
-      if (log.channel === 'email') {
-        result = await Promise.allSettled([sendEmail(student.email, emailSubject, emailHtml)]).then((r) => r[0]);
-      } else {
-        result = await Promise.allSettled([sendWhatsApp(student.phone, whatsappText)]).then((r) => r[0]);
-      }
+      const result = await Promise.allSettled([sendEmail(student.email, emailSubject, emailHtml)]).then((r) => r[0]);
 
       const status = result.status === 'fulfilled' ? 'sent' : 'failed';
       const updatePayload = {
@@ -302,8 +274,7 @@ router.post('/resend-failed', async (req, res) => {
       }
 
       if (status === 'sent') {
-        if (log.channel === 'email') emailSent += 1;
-        if (log.channel === 'whatsapp') whatsappSent += 1;
+        emailSent += 1;
       } else {
         failed.push({ logId: log.id, channel: log.channel, reason: serializeError(result.reason) });
       }
@@ -311,7 +282,7 @@ router.post('/resend-failed', async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      retried: { email: emailSent, whatsapp: whatsappSent },
+      retried: { email: emailSent },
       failed
     });
   } catch (err) {
