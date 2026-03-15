@@ -17,9 +17,6 @@ jobs:
   frontend:
     name: Frontend → Vercel
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_FRONTEND }}
@@ -35,17 +32,14 @@ jobs:
         run: npm install --global vercel@latest
 
       - name: Pull Vercel environment
-        run: vercel pull --yes --environment=production --token $VERCEL_TOKEN
+        run: vercel pull --cwd frontend --yes --environment=production --token $VERCEL_TOKEN
 
       - name: Deploy frontend (remote build)
-        run: vercel deploy --prod --yes --token $VERCEL_TOKEN
+        run: vercel deploy --cwd frontend --prod --yes --token $VERCEL_TOKEN
 
   backend:
     name: Backend → Vercel
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BACKEND }}
@@ -61,7 +55,7 @@ jobs:
         run: npm install --global vercel@latest
 
       - name: Pull Vercel environment
-        run: vercel pull --yes --environment=production --token $VERCEL_TOKEN
+        run: vercel pull --cwd backend --yes --environment=production --token $VERCEL_TOKEN
 
       - name: Deploy backend (remote build)
-        run: vercel deploy --prod --yes --token $VERCEL_TOKEN
+        run: vercel deploy --cwd backend --prod --yes --token $VERCEL_TOKEN
