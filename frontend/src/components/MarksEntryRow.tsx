@@ -4,8 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { CheckCircle2, Loader2, Send } from 'lucide-react'
 
-import { TableCell, TableRow } from '@/components/ui/table'
-
 import { StudentRow, Subject } from '@/types/dashboard'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { DashboardApi } from '@/lib/api'
@@ -350,7 +348,6 @@ export function MarksEntryRow({ student, index, subjects, isSubmitted }: MarksEn
                     const hasAttend = sVals.attendance !== undefined && String(sVals.attendance) !== '' && sVals.attendance !== null
                     const attClass = !hasAttend ? '' : attend < 75 ? 'att-bad' : 'att-ok'
                     const isVeryLastInput = sIdx === subjects.length - 1
-                    const maxTotal = 100 * subjects.length
 
                     return (
                         <td key={subj.id} className="mer-td mer-marks-cell">

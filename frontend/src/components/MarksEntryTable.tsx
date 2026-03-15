@@ -1,6 +1,6 @@
-import { Download, FileSpreadsheet, RotateCcw } from 'lucide-react'
+import { Download, RotateCcw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableBody } from '@/components/ui/table'
 import { useDashboardStore } from '@/store/useDashboardStore'
 import { MarksEntryRow } from './MarksEntryRow'
 import * as XLSX from 'xlsx'
